@@ -1,0 +1,124 @@
+Index: Arcadyan_Web/views.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import pandas as pd\r\nimport os\r\nimport logging\r\nimport math\r\nimport numpy as np\r\nimport re\r\n\r\nfrom . import forms\r\nfrom .forms import LogFilterForm\r\nfrom django.shortcuts import render, redirect\r\nfrom django.contrib.auth.decorators import login_required\r\nfrom django.forms import formset_factory\r\nfrom system.custom_logger import User_logger\r\nfrom django.views.decorators.csrf import csrf_exempt\r\nfrom .models import UploadedLogFile\r\nfrom django.contrib import messages\r\nfrom django.shortcuts import render, redirect, get_object_or_404\r\nimport json\r\nfrom django.http import JsonResponse\r\nfrom .forms import LogFilterForm, FileManagement\r\n\r\nlogger = logging.getLogger('base-logger')\r\ndirectory = os.getcwd()\r\n@login_required\r\ndef index(request):\r\n    logger.info(directory + ' >>>>> ' + ' function:' + 'index')\r\n    form = forms.FileManagement()\r\n    log_files = UploadedLogFile.objects.all().order_by('id')\r\n    return render(request, 'Log_file_management.html', {'form': forms.FileManagement(), 'log_files': log_files})\r\n\r\n\r\n@login_required\r\ndef file_management_input(request):\r\n    log_files = UploadedLogFile.objects.all().order_by('id')\r\n    return render(request, 'log_file_management.html', {'log_files': log_files})\r\n\r\n\r\n# def log_filter_input(request):\r\n#     LogFormSet = formset_factory(LogFilterForm, extra=40)  # 顯示 40 列\r\n#     formset = LogFormSet()\r\n#\r\n#     return render(request, 'log_filter.html', {'formset': formset})\r\n\r\n\r\nfrom django.shortcuts import render\r\nfrom django.forms import formset_factory\r\nfrom .forms import LogFilterForm\r\n\r\n\r\n\r\n# def log_filter_input(request):\r\n#     # 顯示 40 列資料\r\n#     LogFormSet = formset_factory(LogFilterForm, extra=40)\r\n#     formset = LogFormSet()\r\n#\r\n#     # 顯示 10 列資料（第41-50筆）\r\n#     LogFormSet2 = formset_factory(LogFilterForm, extra=10)\r\n#     formset2 = LogFormSet2()\r\n#\r\n#     return render(request, 'log_filter.html', {'formset': formset, 'formset2': formset2})\r\n\r\n\r\n@login_required\r\ndef log_filter_input(request):\r\n    # 顯示 40 列資料\r\n    LogFormSet = formset_factory(LogFilterForm, extra=40)\r\n    formset = LogFormSet()\r\n\r\n    # 顯示 10 列資料（第41-50筆）\r\n    LogFormSet2 = formset_factory(LogFilterForm, extra=10)\r\n    formset2 = LogFormSet2()\r\n\r\n    # 在 context 加入 index\r\n    formset_with_index = list(enumerate(formset, start=1))   # (1, form), (2, form), ..., (40, form)\r\n    formset2_with_index = list(enumerate(formset2, start=41)) # (41, form), (42, form), ..., (50, form)\r\n\r\n    return render(request, 'log_filter.html', {\r\n        'formset': formset_with_index,\r\n        'formset2': formset2_with_index,\r\n    })\r\n@login_required\r\ndef upload_log_file(request):\r\n    if request.method == 'POST':\r\n        uploaded_file = request.FILES.get('log_file')\r\n        # 讀取使用者自訂檔名\r\n        custom_name = request.POST.get('custom_file_name', '')\r\n        if uploaded_file:\r\n            # 儲存 custom_name 至模型中\r\n            UploadedLogFile.objects.create(file=uploaded_file, custom_name=custom_name)\r\n            messages.success(request, f\"Upload Success: {uploaded_file.name}\")\r\n        else:\r\n            messages.error(request, \"Upload Failed: No file selected.\")\r\n        return redirect('file_management_input')\r\n    return render(request, 'log_file_upload.html')\r\n\r\n@login_required\r\ndef delete_log(request, log_id):\r\n    log = get_object_or_404(UploadedLogFile, id=log_id)\r\n    log.delete()\r\n    messages.success(request, f\"File '{log.file.name}' deleted successfully.\")\r\n    return redirect('file_management_input')\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Arcadyan_Web/views.py b/Arcadyan_Web/views.py
+--- a/Arcadyan_Web/views.py	(revision 324afe73316dbf79e64c72c648c1f4fa0664db7c)
++++ b/Arcadyan_Web/views.py	(date 1743860781224)
+@@ -1,65 +1,40 @@
+-import pandas as pd
+ import os
+ import logging
+ import math
+-import numpy as np
+ import re
++import json
+ 
+-from . import forms
+-from .forms import LogFilterForm
+-from django.shortcuts import render, redirect
++import pandas as pd
++import numpy as np
++
++from django.shortcuts import render, redirect, get_object_or_404
+ from django.contrib.auth.decorators import login_required
+ from django.forms import formset_factory
+-from system.custom_logger import User_logger
+ from django.views.decorators.csrf import csrf_exempt
+-from .models import UploadedLogFile
+ from django.contrib import messages
+-from django.shortcuts import render, redirect, get_object_or_404
+-import json
+ from django.http import JsonResponse
++
++from . import forms
+ from .forms import LogFilterForm, FileManagement
++from .models import UploadedLogFile
++from system.custom_logger import User_logger
+ 
+ logger = logging.getLogger('base-logger')
+ directory = os.getcwd()
++
+ @login_required
+ def index(request):
+     logger.info(directory + ' >>>>> ' + ' function:' + 'index')
++    # 使用 FileManagement 表單，若需要在 index 頁面也提供上傳功能
+     form = forms.FileManagement()
+     log_files = UploadedLogFile.objects.all().order_by('id')
+-    return render(request, 'Log_file_management.html', {'form': forms.FileManagement(), 'log_files': log_files})
+-
++    return render(request, 'Log_file_management.html', {'form': form, 'log_files': log_files})
+ 
+ @login_required
+ def file_management_input(request):
+     log_files = UploadedLogFile.objects.all().order_by('id')
+     return render(request, 'log_file_management.html', {'log_files': log_files})
+ 
+-
+-# def log_filter_input(request):
+-#     LogFormSet = formset_factory(LogFilterForm, extra=40)  # 顯示 40 列
+-#     formset = LogFormSet()
+-#
+-#     return render(request, 'log_filter.html', {'formset': formset})
+-
+-
+-from django.shortcuts import render
+-from django.forms import formset_factory
+-from .forms import LogFilterForm
+-
+-
+-
+-# def log_filter_input(request):
+-#     # 顯示 40 列資料
+-#     LogFormSet = formset_factory(LogFilterForm, extra=40)
+-#     formset = LogFormSet()
+-#
+-#     # 顯示 10 列資料（第41-50筆）
+-#     LogFormSet2 = formset_factory(LogFilterForm, extra=10)
+-#     formset2 = LogFormSet2()
+-#
+-#     return render(request, 'log_filter.html', {'formset': formset, 'formset2': formset2})
+-
+-
+ @login_required
+ def log_filter_input(request):
+     # 顯示 40 列資料
+@@ -78,14 +53,16 @@
+         'formset': formset_with_index,
+         'formset2': formset2_with_index,
+     })
++
+ @login_required
++
+ def upload_log_file(request):
+     if request.method == 'POST':
+         uploaded_file = request.FILES.get('log_file')
+         # 讀取使用者自訂檔名
+         custom_name = request.POST.get('custom_file_name', '')
+         if uploaded_file:
+-            # 儲存 custom_name 至模型中
++            # 儲存檔案及自訂名稱到模型
+             UploadedLogFile.objects.create(file=uploaded_file, custom_name=custom_name)
+             messages.success(request, f"Upload Success: {uploaded_file.name}")
+         else:
+@@ -93,9 +70,14 @@
+         return redirect('file_management_input')
+     return render(request, 'log_file_upload.html')
+ 
++
+ @login_required
+ def delete_log(request, log_id):
+-    log = get_object_or_404(UploadedLogFile, id=log_id)
+-    log.delete()
+-    messages.success(request, f"File '{log.file.name}' deleted successfully.")
++    try:
++        log = get_object_or_404(UploadedLogFile, id=log_id)
++        file_name = log.file.name
++        log.delete()
++        messages.success(request, f"Successfully deleted: {file_name}")
++    except Exception as e:
++        messages.error(request, "Delete failed")
+     return redirect('file_management_input')

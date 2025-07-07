@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container-fluid" style="width: auto; max-width: none;">
+    <h2 class="text-center mb-3"><strong>Log File Content</strong></h2>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 95%; margin: 0 auto; gap: 10px;">
+        <!-- 左 1：# of lines -->
+        <div style="flex: 1; text-align: left;">
+            {% if mode == "startcode" %}
+                <h4 style="margin-bottom: 0;">
+                    <strong># of lines:</strong> {{ parsed_logs }}
+                </h4>
+            {% else %}
+                <h4 style="margin-bottom: 0;">
+                    <strong># of lines:</strong> {{ total_matched_count }}
+                </h4>
+            {% endif %}
+        </div>
+
+        <!-- 左 2：空白占位 -->
+        <div style="flex: 1;"></div>
+
+        <!-- 中 3：Full / Startcode 按鈕 -->
+        <div style="flex: 1; text-align: center;">
+            <a href="{% url 'log_file_view' %}?mode=full{% if custom_name %}&custom_name={{ custom_name }}{% endif %}"
+               class="btn btn-primary {% if mode == 'full' %}active{% endif %}">Full Log</a>
+            <a href="{% url 'log_file_view' %}?mode=startcode{% if custom_name %}&custom_name={{ custom_name }}{% endif %}"
+               class="btn btn-warning {% if mode == 'startcode' %}active{% endif %}">Startcode Report</a>
+        </div>
+
+        <!-- 右 4：搜尋列 -->
+        <div style="flex: 1;">
+            <form method="get" style="display: flex; gap: 5px; justify-content: center; align-items: center; margin: 0;">
+                <input type="text" name="search_keyword" placeholder="Search keyword..." class="form-control"
+                       style="max-width: 180px;" value="{{ request.GET.search_keyword }}">
+                <input type="hidden" name="mode" value="{{ mode }}">
+                <input type="hidden" name="custom_name" value="{{ custom_name }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+                <a href="{% url 'filtered_log_view' %}" class="btn btn-danger btn-sm">Clear</a>
+            </form>
+            <!-- 🔍 顯示找不到 -->
+            {% if request.GET.search_keyword and not search_hit_positions %}
+                <div style="text-align: center; margin-top: 6px; padding: 6px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px;">
+                    <strong>No match found for "{{ request.GET.search_keyword }}"</strong>
+                </div>
+            {% endif %}
+            <!-- 🔍 搜尋導覽區塊 -->
+            <div id="search-nav" style="text-align: center; margin-top: 10px;" {% if not search_hit_positions %}hidden{% endif %}>
+                <span style="color: #333;">
+                    Match <span id="search-current">1</span> / <span id="search-total">{{ search_hit_positions|length }}</span>
+                </span>
+                <button id="jump-first" class="btn btn-outline-secondary btn-sm" style="margin-left: 10px;">First</button>
+                <button id="prev-match" class="btn btn-outline-secondary btn-sm">Previous</button>
+                <button id="next-match" class="btn btn-outline-secondary btn-sm">Next</button>
+                <button id="jump-last" class="btn btn-outline-secondary btn-sm">Last</button>
+            </div>
+        </div>
+
+        <!-- 右 5：顯示目前頁碼範圍 -->
+        <div style="flex: 1; text-align: right;">
+            <h4 style="margin-bottom: 0;">
+                <strong>Lines:</strong> {{ page_range_start }} - {{ page_range_end }}
+            </h4>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; width: 95%; margin: 10px auto 0;">
+        <!-- 左邊：Filter 統計區 -->
+        {% if match_counts_per_rule %}
+            <div style="flex: 0 0 140px; background-color: white; padding: 15px; border: 1px solid #ccc; font-family: Arial;">
+                <h5><strong>Filter Result</strong></h5>
+                <div style="display: flex; flex-wrap: wrap;">
+                    <div style="flex: 1 1 50%; padding-right: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        {% for idx, count in indexed_results %}
+                            {% if idx >= 1 and idx <= 40 %}
+                                <div>( ID {{ idx }}: {{ count }} )</div>
+                            {% elif idx >= 41 and idx <= 50 %}
+                                <div>( ALL: {{ count }} )</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- 右邊：log 黑底區 -->
+        <div id="log-container" class="log-container"
+             style="{% if not match_counts_per_rule %}flex: 1 1 100%;{% else %}flex: 1;{% endif %} max-height: 700px; overflow-y: auto; overflow-x: auto;
+                    border: 1px solid black; padding: 10px; background-color: black;
+                    color: white; font-family: monospace; white-space: nowrap;">
+            {% if logs %}
+                {% for log in logs %}
+                    <div style="margin: 0; padding: 0; line-height: 1;">{{ log|safe }}</div>
+                {% endfor %}
+                <div id="loading-indicator" style="display: none; text-align: center; color: white; padding: 10px;">
+                    <em>Loading more logs...</em>
+                </div>
+            {% else %}
+                <div class="log-container"
+                     style="max-height: 700px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px;">
+                    <ul>
+                        <p>Log file not found or empty.</p>
+                        <p>Log file not found or empty.</p>
+                        <p>Log file not found or empty.</p>
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    <script>
+        const hits = {{ search_hit_positions|safe }};
+        const urlParams = new URLSearchParams(window.location.search);
+        // ✅ 自動跳轉到第一筆 match（僅第一次進入搜尋時）
+        if (
+            urlParams.has("search_keyword") &&
+            !urlParams.has("highlight_index") &&
+            hits.length > 0
+        ) {
+            const first = hits[0];
+            urlParams.set("page", first.page);
+            urlParams.set("highlight_index", first.global_index);
+            urlParams.set("current_hit", 0);
+            window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+        }
+
+        // ✅ 從網址取出 current_hit
+        let currentHit = parseInt(urlParams.get("current_hit")) || 0;
+
+        // ✅ 如果沒傳 current_hit，才 fallback 根據 highlight_index 反查 index
+        if (!urlParams.has("current_hit")) {
+            const highlightIndex = parseInt(urlParams.get("highlight_index"));
+            const indexInList = hits.findIndex(h => h.global_index === highlightIndex);
+            if (indexInList >= 0) currentHit = indexInList;
+        }
+
+        // ✅ 一開始更新顯示
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById("search-current").textContent = currentHit + 1;
+
+            const el = document.querySelector(".current-match");
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        });
+
+        function updateNav() {
+            document.getElementById("search-current").textContent = currentHit + 1;
+            const current = hits[currentHit];
+            const baseUrl = new URL(window.location.href);
+            baseUrl.searchParams.set("page", current.page);
+            baseUrl.searchParams.set("highlight_index", current.global_index);
+            baseUrl.searchParams.set("search_keyword", "{{ request.GET.search_keyword }}");
+            baseUrl.searchParams.set("current_hit", currentHit);  // ✅ 保留位置
+            window.location.href = baseUrl.toString();
+        }
+
+        document.getElementById("prev-match").addEventListener("click", function () {
+            currentHit = (currentHit - 1 + hits.length) % hits.length;
+            updateNav();
+        });
+
+        document.getElementById("next-match").addEventListener("click", function () {
+            currentHit = (currentHit + 1) % hits.length;
+            updateNav();
+        });
+
+        document.getElementById("jump-first").addEventListener("click", function () {
+            currentHit = 0;
+            updateNav();
+        });
+
+        document.getElementById("jump-last").addEventListener("click", function () {
+            currentHit = hits.length - 1;
+            updateNav();
+        });
+
+    </script>
+
+    <style>
+        .match {
+            background-color: yellow;
+            color: black;
+            font-weight: bold;
+        }
+
+        .current-match {
+            background-color: orange;
+            color: black;
+            font-weight: bold;
+            border: 1px solid red;
+            padding: 0 2px;
+        }
+    </style>
+
+    <!-- 橫向三分排版 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 95%; margin: 0 auto; gap: 10px; padding: 10px 0;">
+        <!-- 左邊：花費時間 -->
+        <div style="width: 200px; flex-shrink: 0; text-align: left;">
+            {% if elapsed_time_str %}
+                <span style="font-weight: bold; color: #555;">Time spent：{{ elapsed_time_str }}</span>
+            {% endif %}
+        </div>
+
+        <!-- 中間：切頁按鈕 -->
+        <div style="flex: 1; text-align: center;">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    <!-- 上一頁 -->
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><<<</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link"><<<</span></li>
+                    {% endif %}
+
+                    <!-- 第一頁 -->
+                    {% if 1 not in custom_page_range %}
+                        <li class="page-item"><a class="page-link" href="?page=1">1</a></li>
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+
+                    <!-- 中間頁碼 -->
+                    {% for num in custom_page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- 最末頁 -->
+                    {% if paginator.num_pages not in custom_page_range %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ paginator.num_pages }}">Last Page</a></li>
+                    {% endif %}
+
+                    <!-- 下一頁 -->
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">>>></a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">>>></span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+
+        <!-- 右邊：暫時放置存參數設定 -->
+{#        <div style="width: 250px; flex-shrink: 0; text-align: right;">#}
+{#            <!-- 加在 Save Filter 的旁邊 -->#}
+{#            <label style="margin-left: 15px;">#}
+{#                <input type="checkbox" id="is_public_checkbox"> Public Setting#}
+{#            </label>#}
+{#            <button id="save-filter-btn" class="btn btn-success">Save Setting</button>#}
+{#        </div>#}
+    </div>
+</div>
+<script>
+document.getElementById("save-filter-btn").addEventListener("click", function () {
+    console.log("按鈕元素：", document.getElementById("save-filter-btn"));
+
+    const description = prompt("Please enter the description");
+    if (!description) {
+        console.log("沒有輸入描述，終止處理");
+        return;
+    }
+
+    const isPublic = document.getElementById("is_public_checkbox").checked;  // ✅ 補上這行
+
+    const payload = {
+        description: description,
+        enable_idx_list: {{ filter_params.enable_idx_list|safe }},
+        white_list: {{ filter_params.white_list|safe }},
+        black_list: {{ filter_params.black_list|safe }},
+        color_list: {{ filter_params.color_list|safe }},
+        color_type_list: {{ filter_params.color_type_list|safe }},
+        log_filename: "{{ custom_name|default_if_none:'default.log' }}",
+        is_public: isPublic,
+        // 🔽 改成從 context 抓 filter_start_time / filter_end_time
+        start_time: "{{ filter_start_time|default:'' }}",
+        end_time: "{{ filter_end_time|default:'' }}"
+    };
+
+    console.log('準備發送資料：', payload);
+
+    fetch("{% url 'save_filter_config' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        console.log("回應內容：", response);
+        return response.json();
+    })
+    .then(data => {
+        if (data.status === "success") {
+            alert("Settings have been saved successfully!");
+        } else {
+            alert("Save failed:" + data.message);
+        }
+    })
+    .catch(error => {
+        console.error("An error occurred during the saving process:", error);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .vertical-center {
+    min-height: 25vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  td, th {
+    vertical-align: middle !important;
+    text-align: center;
+    line-height: 1.2 !important;
+  }
+  .file-management-title {
+    font-size: 3.5rem;
+  }
+  .message-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+  }
+</style>
+
+<h2 class="text-center mb-3 file-management-title"><strong>File Management</strong></h2>
+<div class="vertical-center">
+  <div class="container mt-4">
+      <hr>
+      <h3 class="mt-4">Uploaded Log Files</h3>
+      <table class="table table-bordered text-center">
+          <thead class="table-secondary">
+              <tr>
+                  <th>ID</th>
+                  <th>File</th>
+                  <th>Description</th>
+                  <th>Uploader</th>
+                  <th>Time</th>
+                  <th>Status</th> <!-- ✅ 新增進度欄 -->
+                  <th>View Report</th>
+                  <th>Action<br>(Owner only)</th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for log in log_files %}
+              <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ log.get_original_filename }}</td>
+                  <td>{{ log.custom_name }}</td>
+                  <td>{{ log.uploader.username }}</td>
+                  <td>{{ log.upload_time|date:"Y-m-d H:i:s" }}</td>
+
+                  <!--即時進度條 -->
+                  <td id="log-progress-{{ log.id }}">
+                    <div style="font-weight: bold;">{{ log.status }}</div>  <!-- 進度條上方顯示狀態文字 -->
+                      <div class="progress">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: {{ log.progress }}%;"
+                             aria-valuenow="{{ log.progress }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ log.progress }}%
+                        </div>
+                      </div>
+                  </td>
+
+
+                  <td>
+                      <a href="{% url 'log_file_view' %}?mode=startcode&custom_name={{ log.custom_name }}" class="btn btn-primary btn-sm">View Report</a>
+                  </td>
+                  <td class="align-middle text-center">
+{#                      {% if request.user == log.uploader %}#}
+                      {% if request.user == log.uploader or request.user.username == "Arcadyan_admin" %}
+                      <div class="d-inline-block">
+                          <form method="post" action="{% url 'delete_log' log.id %}" style="margin: 0;">
+                              {% csrf_token %}
+                              <button type="submit" class="btn btn-danger btn-sm" style="margin: 0; padding: 2px 6px;">Delete</button>
+                          </form>
+                      </div>
+                      {% else %}
+                      <span class="text-muted">No permission</span>
+                      {% endif %}
+                  </td>
+              </tr>
+              {% empty %}
+              <tr>
+                  <td colspan="8">No uploaded files.</td>
+              </tr>
+              {% endfor %}
+          </tbody>
+      </table>
+  </div>
+</div>
+
+<!-- ✅ 自動更新 progress bar -->
+<script>
+function updateLogProgress() {
+    fetch("{% url 'log_progress_status' %}")
+        .then(res => res.json())
+        .then(data => {
+            data.logs.forEach(log => {
+                const el = document.getElementById(`log-progress-${log.id}`);
+                if (el) {
+                    el.innerHTML = `
+<div style="font-weight: bold;">${log.status}</div>
+<div class="progress">
+  <div class="progress-bar ${log.status === 'Completed' ? 'bg-success' : 'bg-info'}"
+       role="progressbar"
+       style="width: ${log.progress}%;"
+       aria-valuenow="${log.progress}" aria-valuemin="0" aria-valuemax="100">
+    ${log.progress}%
+  </div>
+</div>`;
+
+                }
+            });
+        });
+}
+setInterval(updateLogProgress, 2000);
+</script>
+
+<script>
+$(document).ready(function(){
+    setTimeout(function(){
+        $(".message-container .alert").fadeTo(500, 0).slideUp(500, function(){
+            $(this).remove();
+        });
+    }, 3000);
+});
+</script>
+{% endblock %}

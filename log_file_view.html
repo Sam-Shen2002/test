@@ -1,0 +1,1363 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- 引入 Bootstrap Select -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+<!-- DataTables 套件 (排序功能) -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Bootstrap Core JS & Popper.js -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+<!-- DataTables 套件 (排序功能) -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+
+<style>
+  td, th {
+    vertical-align: middle !important;
+    text-align: center;
+    line-height: 1.2 !important;
+  }
+
+    .radio-group {
+    margin: 20px auto;
+    width: 90%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .radio-option {
+    font-size: 1.6rem;
+    border: 2px solid #ccc;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #f9f9f9;
+  }
+
+  .radio-option:hover {
+    background-color: #e6f0ff;
+    border-color: #007bff;
+  }
+
+  .radio-option input[type="radio"] {
+    transform: scale(1.3);
+  }
+
+  .radio-option input[type="radio"]:checked + span {
+    font-weight: bold;
+    color: #007bff;
+  }
+
+  .clickable-steering-row:hover {
+      background-color: #f0f8ff;
+      cursor: pointer;
+  }
+  .clickable-steering-row.highlight {
+      background-color: #cce5ff !important;
+  }
+
+  .log-line.highlight-log {
+      background-color: yellow;
+      color: black;
+  }
+
+</style>
+
+<div class="container-fluid" style="width: auto; max-width: none;">
+    <h2 class="text-center mb-3"><strong>Log File Content</strong></h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 90%; margin: 0 auto; gap: 10px;">
+        <!-- 中間 -->
+        <div style="flex: 1; text-align: center;">
+            <a href="{% url 'log_file_view' %}?mode=full{% if custom_name %}&custom_name={{ custom_name }}{% endif %}"
+               class="btn btn-primary {% if mode == 'full' %}active{% endif %}">Full Log</a>
+
+            <a href="{% url 'log_file_view' %}?mode=startcode{% if custom_name %}&custom_name={{ custom_name }}{% endif %}"
+               class="btn btn-warning {% if mode == 'startcode' %}active{% endif %}">Startcode Report</a>
+
+            <a href="{% url 'log_file_view' %}?mode=clientlist{% if custom_name %}&custom_name={{ custom_name }}{% endif %}"
+               class="btn btn-info {% if mode == 'clientlist' %}active{% endif %}">Client List</a>
+        </div>
+    </div>
+    {% if mode == "startcode" %}
+        {#startcode 按鈕#}
+        {% if mode == "startcode" %}
+            <div style="display: flex; justify-content: center; margin: 5px 0;">
+                <div style="min-width: 300px; max-width: 400px; width: 100%;">
+                    <select id="reportSelector"
+                            name="reportSelector"
+                            class="form-select selectpicker"
+                            data-live-search="false"
+                            data-width="100%"
+                            data-style="btn-outline-info"
+                            data-none-selected-text="Please select pattern report">
+
+                        <option value="">Close Report</option>
+                        <option value="reboot">Reboot</option>
+                        <option value="wifi_signal">WiFi Signal Strength</option>
+                        <option value="channel_changes">Channel Changes</option>
+                        <option value="DHCP_LAN">DHCP LAN</option>
+                        <option value="DHCP_WAN">DHCP WAN</option>
+                        <option value="backhaul_connection">Backhaul Connection</option>
+                        <option value="wifi_availability">WiFi Availability</option>
+                        <option value="Hot_Plug_Events">Hot Plug Events</option>
+                        <option value="band_steering">Band Steering</option>
+                        <option value="eth_wan">ETH-WAN</option>
+                        <option value="cpu_usage">CPU usage</option>
+                        <option value="mem_usage">Mem usage</option>
+                        <option value="tr69_failure">TR69 failure</option>
+                        <option value="cloud_failure">Cloud failure</option>
+                        <option value="arc_appapi">arc_appapi</option>
+
+
+
+
+
+
+
+                    </select>
+                </div>
+            </div>
+
+            <div id="reboot_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>Reboot Records</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                  <tr><th>ID</th><th>Timestamp</th><th>Reboot reason</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in Reboot_events %}
+                  <tr><td>{{ forloop.counter }}</td><td>{{ record.Timestamp }}</td><td>{{ record.Reboot_Reason }}</td></tr>
+                  {% empty %}
+                  <tr><td colspan="3">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div id="wifi_signal_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>WIFI signal Statistics</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                  <tr><th>ID</th><th>MAC</th><th>Band</th><th>-90~-80</th><th>-100~-90</th><th>&lt;-100</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in wifi_signal_strength %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ record.MAC }}</td>
+                    <td>{{ record.Band }}</td>
+                    <td>{{ record.Count_80to90 }}</td>
+                    <td>{{ record.Count_90to100 }}</td>
+                    <td>{{ record.Count_below100 }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="6">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div id="channel_changes_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>Channel change</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                  <tr><th>ID</th><th>Band</th><th>Channel Change Count</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in channel_changes %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ record.Band }}</td>
+                    <td>{{ record.Channel_Change_Count }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="3">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div id="DHCP_LAN_table" style="display: none; width: 90%; margin: 0 auto;">
+{#              <h2>Frequent Request/Discover (DHCP LAN)</h2>#}
+              <h2>Frequent Discover (DHCP LAN)</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                <tr><th>ID</th><th>MAC</th><th>Type</th><th>Count</th><th>Start Time</th><th>End Time</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in frequentDHCPDiscoverRequest %}
+                  <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ record.MAC }}</td>
+                      <td>{{ record.Type }}</td>
+                      <td>{{ record.Count }}</td>
+                      <td>{{ record.Start_Time}}</td>
+                      <td>{{ record.End_Time}}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="6">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <br>
+              <h2>Unsuccessful Request/Discover (DHCP LAN)</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                <tr><th>ID</th><th>MAC</th><th>Type</th><th>Time</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in DHCPDiscoverRequestUnfulfilled %}
+                  <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ record.MAC }}</td>
+                      <td>{{ record.Type }}</td>
+                      <td>{{ record.Time}}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="4">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div id="DHCP_WAN_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>[WAN] DHCP lease</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                  <tr><th>ID</th><th>Timestamp</th><th>Type</th><th>IP</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in wandhcp_renew %}
+                  <tr><td>{{ forloop.counter }}</td><td>{{ record.Timestamp }}</td><td>{{ record.Type }}</td><td>{{ record.IP }}</td></tr>
+                  {% empty %}
+                  <tr><td colspan="3">No results</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div id="eth_wan_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>ETH-WAN Events</h2>
+  <hr>
+  <table class="table table-bordered text-center">
+    <thead class="table-secondary">
+      <tr>
+        <th>ID</th>
+        <th>Timestamp</th>
+        <th>Renew Target IP</th>
+        <th>Result</th>
+        <th>New IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in eth_wan_events %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ record.Trigger_Time }}</td>
+        <td>{{ record.Renew_Target_IP }}</td>
+        <td>{{ record.Result }}</td>
+        <td>{{ record.Success_New_IP }}</td>
+
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No results</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div id="cpu_usage_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>CPU usage</h2>
+  <hr>
+  <canvas id="cpu-usage-chart"></canvas>
+</div>
+            <div id="mem_usage_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>Mem Usage</h2>
+  <hr>
+  <canvas id="mem-usage-chart"></canvas>
+</div>
+            <div id="tr69_failure_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>TR69 failure Report</h2>
+  <hr>
+  <table class="table table-bordered text-center">
+    <thead class="table-secondary">
+      <tr>
+        <th>ID</th>
+        <th>Action</th>
+        <th>ACS</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in tr69_acs_data %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ record.action }}</td>
+        <td>{{ record.acs_ip }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No TR69 data</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+
+            <div id="Hot_Plug_Events_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>Hot Plug Events</h2>
+
+              <!-- Radio buttons 放這裡，位於標題下 -->
+              <div style="text-align: center; margin-bottom: 20px;">
+                <label><input type="radio" name="event_type" value="all" checked> 所有紀錄</label>
+                &nbsp;&nbsp;
+                <label><input type="radio" name="event_type" value="matched"> 配對成功紀錄</label>
+                &nbsp;&nbsp;
+                <label><input type="radio" name="event_type" value="unmatched"> 配對異常紀錄</label>
+              </div>
+
+              <!-- All Events Table -->
+              <div id="Hot_Plug_Events_table_all" style="display: block;">
+                <table class="table table-bordered text-center">
+                  <thead class="table-secondary">
+                    <tr><th>ID</th><th>Timestamp</th><th>RDEV</th><th>Action</th><th>MAC</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for record in all_hot_plug_events %}
+                    <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ record.Timestamp }}</td>
+                      <td>{{ record.RDEV }}</td>
+                      <td>{{ record.Action }}</td>
+                      <td>{{ record.MAC }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">No event records</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Matched Events Table -->
+              <div id="Hot_Plug_Events_table_matched" style="display: block;">
+                <table class="table table-bordered text-center">
+                  <thead class="table-secondary">
+                    <tr><th>ID</th><th>Timestamp</th><th>RDEV</th><th>Action</th><th>MAC</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for record in hot_plug_events %}
+                    <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ record.Timestamp }}</td>
+                      <td>{{ record.RDEV }}</td>
+                      <td>{{ record.Action }}</td>
+                      <td>{{ record.MAC }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">No matched results</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Unmatched Events Table -->
+              <div id="Hot_Plug_Events_table_unmatched" style="display: none;">
+                <table class="table table-bordered text-center">
+                  <thead class="table-secondary">
+                    <tr><th>ID</th><th>Timestamp</th><th>RDEV</th><th>Action</th><th>MAC</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for record in hot_plug_unmatched_events %}
+                    <tr>
+                      <td>{{ forloop.counter }}</td>
+                      <td>{{ record.Timestamp }}</td>
+                      <td>{{ record.RDEV }}</td>
+                      <td>{{ record.Action }}</td>
+                      <td>{{ record.MAC }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">No unmatched results</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+    <div id="wifi_availability_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>WiFi Availability (PHY RATE / TXOP)</h2>
+  <hr>
+
+  {% for bss, records in wifi_availability.items %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#bss-{{ forloop.counter }}">
+          {{ bss }}
+        </button>
+      </div>
+      <div id="bss-{{ forloop.counter }}" class="collapse">
+        <canvas id="chart-{{ forloop.counter }}"
+    {% if records.timestamps and records.phy_rates and records.txops %}
+        data-labels='{{ records.timestamps|safe }}'
+        data-phy='{{ records.phy_rates|safe }}'
+        data-txop='{{ records.txops|safe }}'
+    {% else %}
+        data-labels='[]'
+        data-phy='[]'
+        data-txop='[]'
+    {% endif %}></canvas>
+
+      </div>
+    </div>
+  {% empty %}
+    <p>No WiFi Availability data found.</p>
+  {% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const radios = document.getElementsByName('event_type');
+  const allTable = document.getElementById('Hot_Plug_Events_table_all');
+  const matchedTable = document.getElementById('Hot_Plug_Events_table_matched');
+  const unmatchedTable = document.getElementById('Hot_Plug_Events_table_unmatched');
+
+  radios.forEach(radio => {
+    radio.addEventListener('change', function () {
+      if (this.value === 'all') {
+        allTable.style.display = 'block';
+        matchedTable.style.display = 'none';
+        unmatchedTable.style.display = 'none';
+      } else if (this.value === 'matched') {
+        allTable.style.display = 'none';
+        matchedTable.style.display = 'block';
+        unmatchedTable.style.display = 'none';
+      } else if (this.value === 'unmatched') {
+        allTable.style.display = 'none';
+        matchedTable.style.display = 'none';
+        unmatchedTable.style.display = 'block';
+      }
+    });
+  });
+});
+document.addEventListener("DOMContentLoaded", function () {
+  function renderChart(canvas) {
+  try {
+    const ctx = canvas.getContext("2d");
+    const rawLabels = JSON.parse(canvas.getAttribute("data-labels") || "[]");
+    const phyDataRaw = JSON.parse(canvas.getAttribute("data-phy") || "[]");
+    const txopDataRaw = JSON.parse(canvas.getAttribute("data-txop") || "[]");
+
+    if (!rawLabels.length) return;
+
+    // 時間物件
+    const points = rawLabels.map((label, i) => ({
+      time: new Date(label),
+      phy: phyDataRaw[i],
+      txop: txopDataRaw[i]
+    }));
+
+    // 整點 x 軸
+    const minDate = new Date(points[0].time); minDate.setMinutes(0,0,0);
+    const maxDate = new Date(points[points.length - 1].time); maxDate.setMinutes(0,0,0);
+    const hourlyLabels = [];
+    for (let t = new Date(minDate); t <= maxDate; t.setHours(t.getHours() + 1)) {
+      hourlyLabels.push(new Date(t));
+    }
+
+    // 資料補齊
+    const phyData = [];
+    const txopData = [];
+    hourlyLabels.forEach(hour => {
+      const found = points.filter(pt =>
+        pt.time.getFullYear() === hour.getFullYear() &&
+        pt.time.getMonth() === hour.getMonth() &&
+        pt.time.getDate() === hour.getDate() &&
+        pt.time.getHours() === hour.getHours()
+      );
+      if (found.length > 0) {
+        phyData.push(found[found.length - 1].phy);
+        txopData.push(found[found.length - 1].txop);
+      } else {
+        phyData.push(null);
+        txopData.push(null);
+      }
+    });
+
+    // 計算均值與標準差
+    function mean(arr) {
+      const valid = arr.filter(x => x !== null && !isNaN(x));
+      return valid.reduce((a,b) => a+b, 0) / valid.length;
+    }
+    function std(arr, mu) {
+      const valid = arr.filter(x => x !== null && !isNaN(x));
+      return Math.sqrt(valid.reduce((a,b) => a + Math.pow(b-mu,2), 0) / valid.length);
+    }
+    const n = 3; // 標準差
+    const muPhy = mean(phyData), sigmaPhy = std(phyData, muPhy);
+    const muTxop = mean(txopData), sigmaTxop = std(txopData, muTxop);
+
+    const upBoundPhy = Array(hourlyLabels.length).fill(muPhy + n*sigmaPhy);
+    const lowBoundPhy = Array(hourlyLabels.length).fill(muPhy - n*sigmaPhy);
+    const upBoundTxop = Array(hourlyLabels.length).fill(muTxop + n*sigmaTxop);
+    const lowBoundTxop = Array(hourlyLabels.length).fill(muTxop - n*sigmaTxop);
+
+    // 標註異常
+    const phyPointStyles = phyData.map(v =>
+      v !== null && (v > muPhy + n*sigmaPhy || v < muPhy - n*sigmaPhy) ? 'rectRot' : 'circle'
+    );
+    const phyPointColors = phyData.map(v =>
+      v !== null && (v > muPhy + n*sigmaPhy || v < muPhy - n*sigmaPhy) ? 'red' : 'blue'
+    );
+    const txopPointStyles = txopData.map(v =>
+      v !== null && (v > muTxop + n*sigmaTxop || v < muTxop - n*sigmaTxop) ? 'rectRot' : 'circle'
+    );
+    const txopPointColors = txopData.map(v =>
+      v !== null && (v > muTxop + n*sigmaTxop || v < muTxop - n*sigmaTxop) ? 'red' : 'green'
+    );
+
+    const labelStrings = hourlyLabels.map(dt =>
+      dt.getFullYear() + '-' +
+      String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+      String(dt.getDate()).padStart(2, '0') + ' ' +
+      String(dt.getHours()).padStart(2, '0') + ':00'
+    );
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labelStrings,
+        datasets: [
+          {
+            label: 'PHY RATE (Mbps)',
+            data: phyData,
+            yAxisID: 'y1',
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0,0,255,0.1)',
+            borderWidth: 2,
+            spanGaps: true,
+            pointStyle: phyPointStyles,
+            pointRadius: 6,
+            pointBackgroundColor: phyPointColors
+          },
+          {
+            label: 'TXOP',
+            data: txopData,
+            yAxisID: 'y2',
+            borderColor: 'green',
+            backgroundColor: 'rgba(0,255,0,0.1)',
+            borderWidth: 2,
+            spanGaps: true,
+            pointStyle: txopPointStyles,
+            pointRadius: 6,
+            pointBackgroundColor: txopPointColors
+          },
+          {
+            label: 'PHY(+3σ)',
+            data: upBoundPhy,
+            yAxisID: 'y1',
+            borderColor: 'rgba(255,0,0,0.3)',
+            borderDash: [8,4],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2
+          },
+          {
+            label: 'PHY(-3σ)',
+            data: lowBoundPhy,
+            yAxisID: 'y1',
+            borderColor: 'rgba(255,0,0,0.3)',
+            borderDash: [8,4],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2
+          },
+          {
+            label: 'TXOP(+3σ)',
+            data: upBoundTxop,
+            yAxisID: 'y2',
+            borderColor: 'rgba(255,150,0,0.3)',
+            borderDash: [8,4],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2
+          },
+          {
+            label: 'TXOP(-3σ)',
+            data: lowBoundTxop,
+            yAxisID: 'y2',
+            borderColor: 'rgba(255,150,0,0.3)',
+            borderDash: [8,4],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        stacked: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Time' },
+            ticks: { autoSkip: false, maxRotation: 90, minRotation: 45 }
+          },
+          y1: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'PHY RATE' }
+          },
+          y2: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'TXOP' },
+            grid: { drawOnChartArea: false }
+          }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: canvas.id.replace("chart-", "BSS #") + " Availability Over Time"
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error("❌ Chart init failed:", err);
+  }
+}
+
+
+
+  // 綁定 collapse 展開事件，只初始化一次
+  document.querySelectorAll("div[id^='bss-']").forEach(section => {
+    section.addEventListener("shown.bs.collapse", function () {
+      const canvas = this.querySelector("canvas[id^='chart-']");
+      if (!canvas.dataset.chartInitialized) {
+        renderChart(canvas);
+        canvas.dataset.chartInitialized = "true";
+      }
+    });
+  });
+  // CPU usage 折線圖 Chart.js
+  const cpuChartCanvas = document.getElementById('cpu-usage-chart');
+  if (cpuChartCanvas) {
+    try {
+      const labels = JSON.parse('{{ cpu_chart_labels|safe }}');
+        const usr = JSON.parse('{{ cpu_chart_usr|safe }}');
+        const sys = JSON.parse('{{ cpu_chart_sys|safe }}');
+        const nic = JSON.parse('{{ cpu_chart_nic|safe }}');
+        const idle = JSON.parse('{{ cpu_chart_idle|safe }}');
+        const io = JSON.parse('{{ cpu_chart_io|safe }}');
+        const irq = JSON.parse('{{ cpu_chart_irq|safe }}');
+        const sirq = JSON.parse('{{ cpu_chart_sirq|safe }}');
+      new Chart(cpuChartCanvas, {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      { label: 'Usr %', data: usr, borderColor: 'red', fill: false, tension: 0.2 },
+      { label: 'Sys %', data: sys, borderColor: 'blue', fill: false, tension: 0.2 },
+      { label: 'Nic %', data: nic, borderColor: 'purple', fill: false, tension: 0.2 },
+      { label: 'Idle %', data: idle, borderColor: 'green', fill: false, tension: 0.2 },
+      { label: 'IO %', data: io, borderColor: 'orange', fill: false, tension: 0.2 },
+      { label: 'IRQ %', data: irq, borderColor: 'brown', fill: false, tension: 0.2 },
+      { label: 'SIRQ %', data: sirq, borderColor: 'gray', fill: false, tension: 0.2 },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: true } },
+    scales: {
+      x: { title: { display: true, text: 'Time' }, ticks: { maxRotation: 90, minRotation: 45 } },
+      y: { title: { display: true, text: 'CPU usage (%)' }, min: 0, max: 100 }
+    }
+  }
+});
+     const mem_labels = JSON.parse('{{ mem_chart_labels|safe }}');
+const mem_used = JSON.parse('{{ mem_chart_used|safe }}');
+const mem_free = JSON.parse('{{ mem_chart_free|safe }}');
+const mem_shrd = JSON.parse('{{ mem_chart_shrd|safe }}');
+const mem_buff = JSON.parse('{{ mem_chart_buff|safe }}');
+const mem_cached = JSON.parse('{{ mem_chart_cached|safe }}');
+new Chart(document.getElementById('mem-usage-chart'), {
+  type: 'line',
+  data: {
+    labels: mem_labels,
+    datasets: [
+      { label: 'Used (K)', data: mem_used, borderColor: 'red', fill: false, tension: 0.2 },
+      { label: 'Free (K)', data: mem_free, borderColor: 'green', fill: false, tension: 0.2 },
+      { label: 'Shrd (K)', data: mem_shrd, borderColor: 'blue', fill: false, tension: 0.2 },
+      { label: 'Buff (K)', data: mem_buff, borderColor: 'orange', fill: false, tension: 0.2 },
+      { label: 'Cached (K)', data: mem_cached, borderColor: 'purple', fill: false, tension: 0.2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: true } },
+    scales: {
+      x: { title: { display: true, text: 'Time' }, ticks: { maxRotation: 90, minRotation: 45 } },
+      y: { title: { display: true, text: 'Memory (K)' } }
+    }
+  }
+});
+
+    } catch (err) {
+      console.error("❌ CPU usage chart error:", err);
+    }
+  }
+});
+
+
+</script>
+
+
+</div>
+    </div>
+
+</div>
+
+            </div>
+            <div id="backhaul_connection_table" style="display: none; width: 90%; margin: 0 auto;">
+             <h2>Statistics of Backhaul Connections</h2>
+             <hr>
+             <table class="table table-bordered text-center">
+               <thead class="table-secondary">
+               <tr><th>ID</th><th>Device</th><th># of IP Change</th><th># of Interface Change</th><th># of No Ip Found</th>
+               </thead>
+               <tbody>
+                 {% for record in backhaul_change_summary %}
+                 <tr>
+                     <td>{{ forloop.counter }}</td>
+                     <td>{{ record.Device }}</td>
+                     <td>{{ record.IP_Changes }}</td>
+                     <td>{{ record.Interface_Changes }}</td>
+                     <td>{{ record.IP_None_Count}}</td>
+                 </tr>
+                 {% empty %}
+                 <tr><td colspan="6">No results</td></tr>
+                 {% endfor %}
+               </tbody>
+             </table>
+             <br>
+             <h2> Records of Backhaul Connections</h2>
+             <hr>
+             <table class="table table-bordered text-center">
+               <thead class="table-secondary">
+               <tr><th>ID</th><th>Device</th><th>Start</th><th>End</th><th>Interface</th><th>IP</th></tr>
+               </thead>
+               <tbody>
+                 {% for record in backhaul_period %}
+                 <tr>
+                     <td>{{ forloop.counter }}</td>
+                     <td>{{ record.Device }}</td>
+                     <td>{{ record.Start }}</td>
+                     <td>{{ record.End}}</td>
+                     <td>{{ record.Interface }}</td>
+                     <td>{{ record.IP}}</td>
+                 </tr>
+                 {% empty %}
+                 <tr><td colspan="6">No results</td></tr>
+                 {% endfor %}
+               </tbody>
+             </table>
+           </div>
+         <div id="band_steering_table" style="display: none; width: 90%; margin: 0 auto;">
+  <h2>Band Steering Report</h2>
+  <hr>
+  <table class="table table-bordered text-center">
+    <thead class="table-secondary">
+      <tr>
+        <th>ID</th>
+        <th>Timestamp</th>
+        <th>Source MAC Address</th>
+        <th>Target MAC Address</th>
+        <th>Target Band</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in band_steering_events %}
+{#      <tr>#}
+      <tr class="clickable-steering-row" data-timestamp="{{ record.Timestamp }}">
+        <td>{{ forloop.counter }}</td>
+        <td>{{ record.Timestamp }}</td>
+        <td>{{ record.Source_MAC_Address }}</td>
+        <td>{{ record.Target_MAC_Address }}</td>
+        <td>{{ record.Target_Band }}</td>
+        <td style="color: {% if record.Status == 'Success' %}green{% else %}red{% endif %};">
+          {{ record.Status }}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No Band Steering events found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+        {% endif %}
+    {% endif %}
+{#    未來評估補切頁#}
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 90%; margin: 0 auto; gap: 10px;">
+        <!-- 左邊 -->
+        <div style="flex: 1; text-align: left;">
+            {% if mode == "startcode" or mode == "full" %}
+                <div style="flex: 1; text-align: left;">
+                    <h4 style="margin-bottom: 0;">
+                        <strong># of lines:</strong>
+                        <span id="line-count">
+                            {% if mode == "startcode" %}
+                                {{ parsed_logs }}
+                            {% elif mode == "full" %}
+                                {{ total_matched_count }}
+                            {% endif %}
+                        </span>
+                    </h4>
+                </div>
+            {% endif %}
+        </div>
+
+
+        <!-- 右邊 -->
+        <div style="flex: 1; text-align: right;">
+            <h4 style="margin-bottom: 0;">
+                <strong>Lines:</strong> {{ page_range_start }} - {{ page_range_end }}
+            </h4>
+        </div>
+    </div>
+    <br>
+    {% if logs %}
+    <!-- 預設原始 Log -->
+    <div id="log-container" class="log-container"
+         style="max-height: 700px; overflow-y: auto; overflow-x: auto; border: 1px solid black; padding: 10px; background-color: black; color: white; width: 90%; margin: 0 auto; font-family: monospace; white-space: nowrap;">
+      {% for log in logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <!-- 分類 Logs（預設隱藏） -->
+    <div id="reboot_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in reboot_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="wifi_signal_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in wifi_signal_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="channel_changes_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in channel_changes_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="DHCP_LAN_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in DHCP_LAN_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="DHCP_WAN_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in DHCP_WAN_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="backhaul_connection_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in backhaul_connection_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="wifi_availability_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in wifi_availability_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+
+    <div id="Hot_Plug_Events_logs" class="log-container"
+         style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+                border: 1px solid black; padding: 10px;
+                background-color: black; color: white;
+                width: 90%; margin: 0 auto;
+                font-family: monospace; white-space: nowrap;">
+      {% for log in Hot_Plug_Events_logs %}
+        <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+      {% endfor %}
+    </div>
+        <div id="eth_wan_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in eth_wan_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+        <div id="cpu_usage_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in cpu_usage_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+        <div id="mem_usage_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in mem_usage_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+<div id="tr69_failure_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in tr69_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+        <div id="cloud_failure_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in cloud_failure_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+        <div id="arc_appapi_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+  {% for log in arc_appapi_logs %}
+    <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>
+  {% endfor %}
+</div>
+
+
+
+
+
+        <div id="band_steering_logs" class="log-container"
+     style="display: none; max-height: 700px; overflow-y: auto; overflow-x: auto;
+            border: 1px solid black; padding: 10px;
+            background-color: black; color: white;
+            width: 90%; margin: 0 auto;
+            font-family: monospace; white-space: nowrap;">
+{#        {% for log in band_steering_logs %}#}
+{#            <div class="log-line" data-log-text="{{ log|escape }}">{{ log|safe }}</div>#}
+{#        {% endfor %}#}
+{#        {% for log in band_steering_logs %}#}
+{#          {% with log|slice:":20" as ts_prefix %}#}
+{#            <div class="log-line" data-log-text="{{ log|escape }}" data-timestamp="{{ ts_prefix|default:'' }}">{{ log|safe }}</div>#}
+{#          {% endwith %}#}
+{#        {% endfor %}#}
+        {% for log in band_steering_logs %}
+          {{ log|safe }}
+        {% endfor %}
+
+</div>
+
+
+
+    <div id="loading-indicator" style="display: none; text-align: center; color: white; padding: 10px;">
+        <em>Loading more logs...</em>
+    </div>
+
+    {% else %}
+    <div class="log-container"
+         style="max-height: 700px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px;">
+        <ul>
+            <p>Log file not found or empty.</p>
+            <p>Log file not found or empty.</p>
+            <p>Log file not found or empty.</p>
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<div style="text-align: center; margin-top: 20px;">
+    <nav aria-label="Page navigation">
+        <ul class="pagination">
+
+            <!-- 上一頁按鈕 -->
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link"
+                       href="?page={{ page_obj.previous_page_number }}{% if custom_name %}&custom_name={{ custom_name }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}"><<<</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link"><<<</span></li>
+            {% endif %}
+
+            <!-- 最前頁按鈕 -->
+            {% if 1 not in custom_page_range %}
+                <li class="page-item">
+                    <a class="page-link"
+                       href="?page=1{% if custom_name %}&custom_name={{ custom_name }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}">1</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+
+            <!-- 中間頁碼 -->
+            {% for num in custom_page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% else %}
+                    <li class="page-item">
+                        <a class="page-link"
+                           href="?page={{ num }}{% if custom_name %}&custom_name={{ custom_name }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            <!-- 最末頁按鈕 -->
+            {% if paginator.num_pages not in custom_page_range %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                <li class="page-item">
+                    <a class="page-link"
+                       href="?page={{ paginator.num_pages }}{% if custom_name %}&custom_name={{ custom_name }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}">Last Page</a>
+                </li>
+            {% endif %}
+
+
+            <!-- 下一頁按鈕 -->
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link"
+                       href="?page={{ page_obj.next_page_number }}{% if custom_name %}&custom_name={{ custom_name }}{% endif %}{% if mode %}&mode={{ mode }}{% endif %}{% if filter %}&filter={{ filter }}{% endif %}">>>></a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">>>></span></li>
+            {% endif %}
+
+        </ul>
+    </nav>
+</div>
+
+<script>
+let currentPage = {{ page_obj.number }};
+const totalPages = {{ paginator.num_pages }};
+const logContainer = document.getElementById("log-container");
+const loadingIndicator = document.getElementById("loading-indicator");
+let isLoading = false;
+
+logContainer.addEventListener("scroll", async function () {
+    const scrollTop = logContainer.scrollTop;
+    const scrollHeight = logContainer.scrollHeight;
+    const containerHeight = logContainer.clientHeight;
+
+    if (scrollTop + containerHeight >= scrollHeight - 200 && !isLoading && currentPage < totalPages) {
+        isLoading = true;
+        loadingIndicator.style.display = "block";
+        currentPage += 1;
+
+        try {
+            const response = await fetch(`/api/logs?page=${currentPage}`);
+            const data = await response.json();
+
+            for (let log of data.logs) {
+                const pre = document.createElement("pre");
+                pre.style.margin = "0";
+                pre.style.padding = "0";
+                pre.style.backgroundColor = "black";
+                pre.style.color = "white";
+                pre.style.border = "none";
+                pre.style.lineHeight = "1";
+                pre.innerHTML = log;
+                logContainer.appendChild(pre);
+            }
+        } catch (err) {
+            console.error("Error loading logs:", err);
+        }
+
+        loadingIndicator.style.display = "none";
+        isLoading = false;
+    }
+});
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.jQuery && $('.selectpicker').selectpicker) {
+      $('.selectpicker').selectpicker('render');
+    } else {
+      console.warn("⚠️ Bootstrap-select 未正確載入！");
+    }
+
+    const tableSelect = document.getElementById('reportSelector');
+    const keys = [
+      'reboot', 'wifi_signal', 'channel_changes', 'DHCP_LAN',
+      'DHCP_WAN', 'backhaul_connection', 'wifi_availability', 'Hot_Plug_Events', 'band_steering','eth_wan',
+        'cpu_usage', 'mem_usage', 'tr69_failure', 'cloud_failure',"arc_appapi"
+    ];
+    const originalLogContainer = document.getElementById('log-container');  // 全部 logs 的容器
+    const lineCountElement = document.getElementById('line-count');         // 左上角行數顯示
+
+    const mode = "{{ mode }}";
+    const parsedLogsRaw = "{{ parsed_logs|default:'0' }}";
+    const totalMatchedRaw = "{{ total_matched_count|default:'0' }}";
+
+    const parsedCount = parseInt(parsedLogsRaw.replace(/,/g, ''));
+    const totalCount = parseInt(totalMatchedRaw.replace(/,/g, ''));
+    const originalParsedCount = (mode === "startcode") ? parsedCount : totalCount;
+
+    function updateVisibleTable(selectedValue) {
+      console.log("🔍 使用者選擇：", selectedValue);
+      let visibleLineCount = 0;
+
+      keys.forEach(key => {
+        const tableDiv = document.getElementById(key + '_table');
+        const logDiv = document.getElementById(key + '_logs');
+
+        const show = (key === selectedValue);
+
+        if (tableDiv) {
+          tableDiv.style.display = show ? 'block' : 'none';
+        }
+        if (logDiv) {
+          logDiv.style.display = show ? 'block' : 'none';
+          if (show) {
+            visibleLineCount = logDiv.querySelectorAll('.log-line').length;
+          }
+        }
+      });
+
+      // 顯示預設 logs 或隱藏
+      if (originalLogContainer) {
+        const showOriginal = selectedValue === '';
+        originalLogContainer.style.display = showOriginal ? 'block' : 'none';
+
+        // ✅ 切換顯示的行數
+        if (lineCountElement) {
+          const countToShow = showOriginal ? originalParsedCount : visibleLineCount;
+          lineCountElement.textContent = countToShow.toLocaleString();
+        }
+      }
+    }
+
+
+    updateVisibleTable('');  // 頁面初始化
+    tableSelect.addEventListener('change', function () {
+      updateVisibleTable(this.value);
+    });
+  });
+</script>
+{#依據不同下拉式選單內容，顯示不同內容    #}
+<script>
+{#document.addEventListener("DOMContentLoaded", function () {#}
+{#    const selector = document.getElementById("reportSelector");#}
+{#    const logLines = document.querySelectorAll(".log-line");#}
+{#    console.log("📋 所有下拉選單選項：");#}
+{#    Array.from(selector.options).forEach(option => {#}
+{#        console.log("文字:", option.text, "→ 值:", option.value);#}
+{#    });#}
+{##}
+{#    function filterLogs() {#}
+{#        const selected = selector.value;#}
+{#        let visibleCount = 0;#}
+{##}
+{#        logLines.forEach(line => {#}
+{#            const text = line.getAttribute("data-log-text");#}
+{#            const match = (#}
+{#                !selected ||  // 顯示全部#}
+{#                (selected === "reboot" && text.includes("[Reboot]")) ||#}
+{#                (selected === "DHCP_LAN" && text.includes("[DHCP LAN]")) ||#}
+{#                (selected === "wifi_signal" && text.includes("[WiFi signal strength]")) ||#}
+{#                (selected === "channel_changes" && text.includes("[Channel changes]")) ||#}
+{#                (selected === "band_steering" && text.includes("[Band Steering]")) ||#}
+{#                (selected === "backhaul_connection" && (text.includes("[Backhaul OK]")||text.includes("[Backhaul No IP]")) ||#}
+{#                (selected === "DHCP_WAN" && text.includes("[DHCP WAN]")) ||#}
+{#                (selected === "Hot_Plug_Events" && text.includes("[Hot Plug Events]")))#}
+{#            );#}
+{##}
+{#            line.style.display = match ? "block" : "none";#}
+{#            if (match) visibleCount++;#}
+{#        });#}
+{##}
+{##}
+{#    }#}
+{##}
+{##}
+{#    selector.addEventListener("change", filterLogs);#}
+{#    filterLogs(); // 初始執行#}
+{#});#}
+{#document.querySelectorAll(".log-line").forEach(line => {#}
+{#    const text = line.getAttribute("data-log-text");#}
+{#    if (text.includes("[Channel changes]") || text.includes("[Reboot]")) {#}
+{#        console.log("✅ 有抓到:", text);#}
+{#    }#}
+{#});#}
+{##}
+{#document.addEventListener("DOMContentLoaded", function () {#}
+{#    const selector = document.getElementById("reportSelector");#}
+{#    const lineCount = document.getElementById("line-count");#}
+{##}
+{#    const originalCount = "{{ parsed_logs }}";  // 從 template 抓原始行數#}
+{##}
+{#    if (selector && lineCount) {#}
+{#        selector.addEventListener("change", function () {#}
+{#            const selectedValue = selector.value;#}
+{##}
+{#            if (selectedValue === "") {#}
+{#                // 選擇 Close Report，回復原始行數#}
+{#                lineCount.innerText = originalCount;#}
+{#            } else {#}
+{#                // 選擇某個 report，就用 JS 重新計算顯示的 log 行數#}
+{#                const visibleLogs = Array.from(document.querySelectorAll(".log-line"))#}
+{#                                         .filter(el => el.style.display !== "none");#}
+{#                lineCount.innerText = visibleLogs.length.toLocaleString();#}
+{#            }#}
+{#        });#}
+{#    }#}
+{#});#}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const selector = document.getElementById("reportSelector");
+  const tables = [
+    "reboot", "wifi_signal", "channel_changes",
+    "DHCP_LAN", "DHCP_WAN", "backhaul_connection",
+    "wifi_availability", "Hot_Plug_Events", "band_steering", "eth_wan", 'cpu_usage', 'mem_usage', 'tr69_failure'
+  ];
+
+  function updateVisibleTable(selected) {
+    tables.forEach(id => {
+      const table = document.getElementById(id + "_table");
+      if (table) {
+        table.style.display = (id === selected) ? "block" : "none";
+      }
+    });
+          //初始化排序功能
+      tables.forEach(id => {
+        const tableTag = document.querySelector(`#${id}_table table`);
+        const headers = tableTag?.querySelectorAll("thead tr th").length || 0;
+        const row = tableTag?.querySelector("tbody tr");
+        const cells = row?.querySelectorAll("td").length || headers;
+        if (tableTag && headers === cells && !$.fn.DataTable.isDataTable(tableTag)) {
+                $(tableTag).DataTable({
+                    paging: false,
+                    info: false,
+                    searching: false,
+                    order: []
+                });
+            }
+      });
+  }
+
+  selector.addEventListener("change", function () {
+    updateVisibleTable(this.value);
+  });
+
+  updateVisibleTable(""); // 預設不顯示
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  // 點擊 Band Steering row → 對應 log 反白 + 滾動
+  document.querySelectorAll(".clickable-steering-row").forEach(row => {
+    row.addEventListener("click", function () {
+      const ts = this.dataset.timestamp;
+
+      // 清除所有高亮（row 與 log）
+      document.querySelectorAll(".clickable-steering-row").forEach(r => r.classList.remove("highlight"));
+      document.querySelectorAll("#band_steering_logs .log-line").forEach(log => log.classList.remove("highlight-log"));
+
+      // 加上 row 的反白
+      this.classList.add("highlight");
+
+      // 找對應 log line 並高亮 + 滾動
+      const logMatch = Array.from(document.querySelectorAll("#band_steering_logs .log-line"))
+                            .find(line => line.dataset.timestamp?.startsWith(ts));
+
+      if (logMatch) {
+        logMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+        logMatch.classList.add("highlight-log");
+      }
+    });
+  });
+
+  // 回頂部按鈕功能
+  const btn = document.createElement("button");
+  btn.innerText = "↑ Top";
+  btn.style.position = "fixed";
+  btn.style.bottom = "30px";
+  btn.style.right = "30px";
+  btn.style.padding = "8px 12px";
+  btn.style.zIndex = "9999";
+  btn.style.backgroundColor = "#007bff";
+  btn.style.color = "#fff";
+  btn.style.border = "none";
+  btn.style.borderRadius = "5px";
+  btn.style.cursor = "pointer";
+  btn.style.display = "none";
+  document.body.appendChild(btn);
+
+  btn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  window.addEventListener("scroll", () => {
+    btn.style.display = window.scrollY > 300 ? "block" : "none";
+  });
+});
+</script>
+{% endblock %}

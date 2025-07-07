@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+
+{% block javascript %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/js/i18n/defaults-zh_TW.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{#<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">#}
+{% if messages %}
+  <div id="messages">
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" style="background-color: #f8d7da; color: #721c24; font-size: 18px; font-weight: bold;">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+  <script>
+    setTimeout(function () {
+      const messages = document.getElementById('messages');
+      if (messages) {
+        messages.style.transition = 'opacity 1s';
+        messages.style.opacity = '0';
+        setTimeout(() => messages.remove(), 1000);
+      }
+    }, 5000); // 顯示 5 秒
+  </script>
+{% endif %}
+
+
+<script>
+    // 顯示顏色並更新顏色名稱的函數
+    function updateColorDisplay(selectElement) {
+        // 獲取選擇的顏色值
+        var colorValue = selectElement.value;
+
+        // 設置已選中的顏色
+        selectElement.style.color = colorValue; // 設置選擇框的顏色為所選顏色
+
+        // 設置每個選項的顏色
+        var options = selectElement.options;
+        for (var i = 0; i < options.length; i++) {
+            // 始終保持選項顏色為所選顏色
+            options[i].style.color = options[i].value;  // 設置每個選項顏色為該選項的顏色
+            options[i].style.backgroundColor = 'white'; // 背景顏色始終為白色
+        }
+
+        // 更新選擇框縮起來後的顏色
+        selectElement.querySelector('option:selected').style.color = colorValue;
+    }
+    function clearAll() {
+        // 清除所有文字輸入框
+        document.querySelectorAll('input[type="text"]').forEach(input => input.value = '');
+
+        // 清除所有下拉選單（重設為第一個選項）
+        document.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+
+        // 清除所有 checkbox（例如 enable）
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => checkbox.checked = false);
+
+        // 若有 color-select 類型元素需要額外處理顯示
+        document.querySelectorAll('.color-select').forEach(sel => updateColorDisplay(sel));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      $('.selectpicker').selectpicker('render');
+
+      document.body.addEventListener('click', function (e) {
+        if (e.target.classList.contains('delete-filter-btn')) {
+          e.stopPropagation();
+
+          // 🚨 抓取 description（從前一個兄弟元素 .filter-label）
+          const descriptionSpan = e.target.previousElementSibling;
+          const description = descriptionSpan?.textContent?.trim();
+
+          if (!description) {
+            alert("❌ Can not get description!!!");
+            return;
+          }
+
+          if (!confirm(`Are you sure you want to delete the filter「${description}」？`)) return;
+
+          console.log("🚀 準備刪除描述為：", description);
+
+          fetch("{% url 'delete_filter_config' %}", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: `description=${encodeURIComponent(description)}`
+          }).then(response => response.json()).then(data => {
+            if (data.status === "success") {
+              alert("✅ Successfully deleted!");
+              {#location.reload();  // ✅ 直接重新載入頁面#}
+              {#window.location.href = "{% url 'Log_Filter' %}";#}
+              if (data.next_config_id) {
+                window.location.href = "{% url 'Log_Filter' %}?config_id=" + data.next_config_id;
+              } else {
+                window.location.href = "{% url 'Log_Filter' %}";
+              }
+            } else {
+              alert("❌ Delete failed:" + data.message);
+            }
+          });
+        }
+      });
+    });
+</script>
+
+{% endblock %}
+{% block content %}
+    <style>
+    /* 調整表格 header 的字體大小與置中 */
+    table th {
+        font-size: 12px;
+        text-align: center;
+        vertical-align: middle !important;
+    }
+
+    /* 表格內容欄位（包含 index、enable、color 等）置中對齊 */
+    table td {
+        font-size: 12px;
+        text-align: center;
+        vertical-align: middle !important;
+    }
+
+    /* 針對 keyword 欄位內部輸入區維持 inline 的樣式 */
+    .keyword-cell {
+        text-align: left;
+    }
+
+    .filter-option-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .filter-label {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .delete-filter-btn {
+        color: red;
+        font-weight: bold;
+        cursor: pointer;
+        padding-left: 10px;
+    }
+
+    .delete-filter-btn:hover {
+        color: darkred !important;
+        text-decoration: underline;
+    }
+    .modal-backdrop {
+      background-color: #000;
+      opacity: 0.5;
+    }
+
+</style>
+
+<div class="container-fluid" style="width: auto; max-width: none;">
+    <div class="row justify-content-md-center text-center">
+        <h1 id="form-title"><strong>Log Filter</strong></h1>
+    </div>
+    <!-- 加在 Page 1 表單開頭的位置 -->
+    <script>
+        function loadSavedConfig(selectElement) {
+            const configId = selectElement.value;
+            console.log('Selected Config ID:', configId);  // 加入這行來檢查是否有正確獲取到 configId
+            if (configId) {
+                window.location.href = `/Log_Filter/Load_Config/${configId}/`;
+                window.location.href = `/Log_Filter/?config_id=${configId}`;
+
+            }
+        }
+    </script>
+    <!-- 第2個 form：選檔案 + 時間區間 + 篩選條件送出 -->
+    <form action="/Log_Filter/" method="POST" id="v-method-form" class="form-horizontal" onsubmit="startProgress()">
+        {% csrf_token %}
+        <div class="row mb-3" style="display: flex; flex-wrap: nowrap; gap: 15px;">
+{#        <div class="row mb-3" style="display: flex; flex-wrap: nowrap; gap: 15px; background-color: rgba(255, 230, 180, 0.4); ">#}
+          <!-- 左邊：下拉選單 -->
+{#            <div style="text-align: left; max-width: 300px;">#}
+            <div class="col" style="min-width: 300px;">
+            <label class="form-label"><strong>Select Saved Filter:</strong></label>
+                <div class="input-group">
+{#                    <select class="form-select selectpicker w-100" id="saved-configs-select" name="config_id"#}
+{#                            data-live-search="true" data-width="100%" onchange="loadSavedConfig(this)"#}
+{#                            data-none-selected-text="請選擇 Filter">#}
+{#                        {% for config in saved_configs %}#}
+{#                            <option value="{{ config.id }}"#}
+{#                                    data-content="<div class='filter-option-wrapper'>#}
+{#                                                    <span class='filter-label'>{{ config.description }}</span>#}
+{#                                                    {% if config.user == request.user %}#}
+{#                                                      <span class='delete-filter-btn' title='刪除這個 Filter'>×</span>#}
+{#                                                    {% endif %}#}
+{#                                                  </div>"#}
+{#                                    {% if config.id|stringformat:"s" == request.GET.config_id %}selected{% endif %}>#}
+{#                              {{ config.description }}#}
+{#                            </option>#}
+{#                        {% endfor %}#}
+{#                    </select>#}
+                    <select class="form-select selectpicker w-100" id="saved-configs-select" name="config_id"
+                                    data-live-search="true" data-width="100%"
+                                    onchange="handleSavedConfigSelect(this)"
+                                    data-none-selected-text="Please select filter">
+
+                        {% for config in saved_configs|slice:":10" %}
+                            <option value="{{ config.id }}"
+                                    data-content="<div class='filter-option-wrapper'>
+                                                    <span class='filter-label'>{{ config.description }}</span>
+                                                    {% if config.user == request.user %}
+                                                      <span class='delete-filter-btn' title='Delete this filter'>×</span>
+                                                    {% endif %}
+                                                  </div>"
+                                    {% if config.id|stringformat:"s" == request.GET.config_id %}selected{% endif %}>
+                                {{ config.description }}
+                            </option>
+                        {% endfor %}
+                        {% if saved_configs|length > 5 %}
+                            <option value="show_modal">Show All Filter Setting...</option>
+                        {% endif %}
+                    </select>
+
+        {#                    {% for config in saved_configs %}#}
+        {#                        {% if config.id|stringformat:"s" == request.GET.config_id and config.user == request.user %}#}
+        {#                            <button class="btn btn-danger" type="submit"#}
+        {#                                    onclick="return confirm('你確定要刪除這個設定嗎？')">Delete</button>#}
+        {#                        {% endif %}#}
+        {#                    {% endfor %}#}
+                    <button type="button" class="btn btn-warning" onclick="clearAll()">Clear All</button>
+                </div>
+            </div>
+            <!-- Select Log File -->
+            <div class="col" style="min-width: 220px;">
+                <label class="form-label"><strong>Select Log File:</strong></label>
+                    <select class="form-select selectpicker"
+                          name="custom_name"
+                          data-live-search="true"
+                          data-none-selected-text="請選擇 Log File"
+                          data-width="100%">
+                    {% for log in uploaded_logs %}
+                        <option value="{{ log.custom_name }}"
+                                {% if log.custom_name == request.session.custom_name %}selected{% endif %}>
+                          {{ log.custom_name }}
+                        </option>
+                    {% endfor %}
+                    </select>
+            </div>
+
+            <!-- Start Time -->
+            <div class="col" style="min-width: 200px;">
+                <label class="form-label"><strong>Start Time (From):</strong></label>
+                <input type="datetime-local" class="form-control" name="start_time" value="{{ start_time_str }}">
+            </div>
+
+            <!-- End Time -->
+            <div class="col" style="min-width: 200px;">
+                <label class="form-label"><strong>End Time (To):</strong></label>
+                <input type="datetime-local" class="form-control" name="end_time" value="{{ end_time_str }}">
+            </div>
+
+            <!-- Save Filter + Public Checkbox -->
+            <div class="col"
+                 style="min-width: 100px;
+                        max-width: 150px;
+                        margin-left: auto;
+                        text-align: left;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: flex-end;">
+                <label><input type="checkbox" id="is_public_checkbox"> Public Setting</label>
+                <button type="button" id="save-filter-btn" class="btn btn-success mt-1">Save Setting</button>
+            </div>
+        </div>
+
+        <!-- Page 1 顯示內容 -->
+        <div id="page1" class="page-content">
+            <div class="table-responsive keyword-container">
+                <table class="table table-bordered table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Index</th>
+                            <th>Enable</th>
+                            <th>Color</th>
+                            <th>Keyword 1</th>
+                            <th>Keyword 2</th>
+                            <th>Keyword 3</th>
+                            <th>Keyword 4</th>
+                            <th>Keyword 5</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for index, form in formset %}
+                            {% if index == 41 %}
+                                <!-- 加入區隔線 -->
+                                <tr>
+                                    <td colspan="8">
+                                        <hr style="border: 2px dashed #999; margin: 8px 0;">
+{#                                        <div style="text-align: center; color: #555;"><strong>下方條件使用 AND 邏輯</strong></div>#}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        <tr>
+                            <td>{{ index }}</td>
+                            <td class="text-center" id="{{ form.prefix }}-enable">{{ form.enable }}</td>
+                            <td>
+                                <select class="form-control color-select" name="{{ form.prefix }}-color" onchange="updateColorDisplay(this)">
+                                    {% for value, label in form.color.field.choices %}
+                                    <option value="{{ value }}" {% if form.color.value == value %}selected{% endif %}
+                                        style="
+                                            {% if '_bg' in value %}
+                                                background-color: {{ value|slice:':-3' }};
+                                                color: black;
+                                            {% else %}
+                                                color: {{ value }};
+                                                background-color: white;
+                                            {% endif %}
+                                        ">
+                                        {{ label }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+
+                            <td class="keyword-cell">
+                                <div style="display: inline-block; width: 60px;">
+                                    {{ form.keyword_1_type }}  <!-- 黑名單/白名單選擇框 -->
+                                </div>
+                                <div style="display: inline-block; width: calc(100% - 60px - 5px);">
+                                    {{ form.keyword_1 }}  <!-- 關鍵字輸入框 -->
+                                </div>
+                            </td>
+                            <td class="keyword-cell">
+                                <div style="display: inline-block; width: 60px;">
+                                    {{ form.keyword_2_type }}  <!-- 黑名單/白名單選擇框 -->
+                                </div>
+                                <div style="display: inline-block; width: calc(100% - 60px - 5px);">
+                                    {{ form.keyword_2 }}  <!-- 關鍵字輸入框 -->
+                                </div>
+                            </td>
+                            <td class="keyword-cell">
+                                <div style="display: inline-block; width: 60px;">
+                                    {{ form.keyword_3_type }}  <!-- 黑名單/白名單選擇框 -->
+                                </div>
+                                <div style="display: inline-block; width: calc(100% - 60px - 5px);">
+                                    {{ form.keyword_3 }}  <!-- 關鍵字輸入框 -->
+                                </div>
+                            </td>
+
+                            <td class="keyword-cell">
+                                <div style="display: inline-block; width: 60px;">
+                                    {{ form.keyword_4_type }}  <!-- 黑名單/白名單選擇框 -->
+                                </div>
+                                <div style="display: inline-block; width: calc(100% - 60px - 5px);">
+                                    {{ form.keyword_4 }}  <!-- 關鍵字輸入框 -->
+                                </div>
+                            </td>
+                            <td class="keyword-cell">
+                                <div style="display: inline-block; width: 60px;">
+                                    {{ form.keyword_5_type }}  <!-- 黑名單/白名單選擇框 -->
+                                </div>
+                                <div style="display: inline-block; width: calc(100% - 60px - 5px);">
+                                    {{ form.keyword_5 }}  <!-- 關鍵字輸入框 -->
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 共用的送出按鈕 -->
+        <div class="text-center" style="margin-top: 20px;">
+            <button type="submit" class="btn btn-success">Submit</button>
+        </div>
+    </form>
+    <!-- 新增進度條 Modal -->
+    <div id="filterProgressModal" class="modal" tabindex="-1" role="dialog" style="display: none;">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Filtering in Progress</h5>
+          </div>
+          <div class="modal-body">
+            <div id="filter-status-text" style="font-weight: bold;">Initializing...</div>
+            <div class="progress">
+              <div id="filter-progress-bar" class="progress-bar bg-info" role="progressbar" style="width: 0%;"
+                   aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                0%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<script>
+  function startProgress() {
+    const modal = document.getElementById("filterProgressModal");
+    modal.style.display = "block";
+    document.getElementById("filter-status-text").textContent = "Processing...";
+    document.getElementById("filter-progress-bar").style.width = "0%";
+    document.getElementById("filter-progress-bar").textContent = "0%";
+    pollFilterProgress();
+  }
+
+  function pollFilterProgress() {
+    const interval = setInterval(() => {
+      fetch("/filter_progress_status/")
+        .then(res => res.json())
+        .then(data => {
+          const bar = document.getElementById("filter-progress-bar");
+          const text = document.getElementById("filter-status-text");
+          bar.style.width = `${data.progress}%`;
+          bar.setAttribute("aria-valuenow", data.progress);
+          bar.textContent = `${data.progress}%`;
+          text.textContent = data.status;
+
+          if (data.progress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                window.location.href = "{% url 'filtered_log_view' %}"
+            }, 1500);
+
+          }
+        })
+        .catch(err => {
+          console.error("Progress fetch failed", err);
+        });
+    }, 2000);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('save-filter-btn').addEventListener('click', async function () {
+        const description = prompt("Please enter description：");
+        if (!description) {
+            alert("Please enter description！");
+            return;
+        }
+
+        const custom_name = document.querySelector('select[name="custom_name"]').value;
+        const start_time = document.querySelector('input[name="start_time"]').value;
+        const end_time = document.querySelector('input[name="end_time"]').value;
+        const is_public = document.getElementById("is_public_checkbox").checked;
+
+        // 抓每一列的篩選條件
+        const filters = [];
+        const rows = document.querySelectorAll("tbody tr");
+        rows.forEach((row, idx) => {
+            const enable = row.querySelector('input[type="checkbox"]')?.checked || false;
+            const color = row.querySelector('select[name$="-color"]')?.value;
+
+            const keywordCells = row.querySelectorAll(".keyword-cell");
+            const keywords = [];
+            keywordCells.forEach(cell => {
+                const type = cell.querySelector("select")?.value;
+                const word = cell.querySelector("input")?.value;
+                keywords.push({ type, word });
+            });
+
+            filters.push({
+                index: idx + 1,
+                enable,
+                color,
+                keywords
+            });
+        });
+
+        // 準備 POST 資料
+        const payload = {
+            description,
+            custom_name,
+            start_time,
+            end_time,
+            is_public,
+            filters
+        };
+
+        const response = await fetch("{% url 'save_filter_from_bottum' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+            alert("✅ Successfully saved!");
+            location.reload();
+        } else {
+            alert("❌ Save failed:" + result.message);
+        }
+    });
+  });
+  function handleSavedConfigSelect(select) {
+    const configId = select.value;
+    console.log("⚠️ 選到的值是", configId);
+    if (configId === "show_modal") {
+        window.location.href = "{% url 'all_filter_settings_view' %}";
+        return;
+    }
+
+    // ✅ 正常跳轉
+    if (configId) {
+        window.location.href = `/Log_Filter/?config_id=${configId}`;
+    }
+  }
+  function loadConfigFromModal(configId) {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('filterConfigModal'));
+    modal.hide();
+    window.location.href = `/Log_Filter/?config_id=${configId}`;
+  }
+  function deleteConfigFromModal(description) {
+      if (!confirm(`Are you sure to delete filter 「${description}」 ?`)) return;
+
+      fetch("{% url 'delete_filter_config' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: `description=${encodeURIComponent(description)}`
+      }).then(response => response.json()).then(data => {
+        if (data.status === "success") {
+          alert("✅ Successfully deleted!");
+          location.reload();  // 重新載入頁面刷新 select 跟 modal 列表
+        } else {
+          alert("❌ Delete failed:" + data.message);
+        }
+      }).catch(err => {
+        console.error("❌ AJAX error", err);
+        alert("❌ An error occurred. Cannot delete.");
+      });
+  }
+</script>
+</div>
+{% endblock %}
