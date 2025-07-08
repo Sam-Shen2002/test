@@ -895,6 +895,29 @@ def parse_startcode(input_file_path, output_file_path):
             save_analysis_csv(df_hot_plug_events, input_file_path, "hot_plug_events.csv")
             print('成功儲存所有熱插拔')
 
+            # ----------- Calculate add/del ratio in 1 minute window -----------
+            df_hot_plug_events['Timestamp'] = pd.to_datetime(df_hot_plug_events['Timestamp'])
+            df_hot_plug_events['Minute'] = df_hot_plug_events['Timestamp'].dt.floor('T')
+            ratio_rows = []
+            for (mac, minute), group in df_hot_plug_events.groupby(['MAC', 'Minute']):
+                add_count = (group['Action'] == 'add').sum()
+                del_count = (group['Action'] == 'del').sum()
+                max_val = max(add_count, del_count)
+                if max_val == 0:
+                    continue
+                ratio = abs(add_count - del_count) / max_val
+                if ratio > 0.5:
+                    ratio_rows.append({
+                        'MAC': mac,
+                        'Minute': minute,
+                        'Add_Count': int(add_count),
+                        'Del_Count': int(del_count),
+                        'Ratio': ratio
+                    })
+
+            df_ratio_abnormal = pd.DataFrame(ratio_rows)
+            save_analysis_csv(df_ratio_abnormal, input_file_path, "hot_plug_events_ratio_abnormal.csv")
+
             mac_add_queue = defaultdict(deque)
             unmatched_rows = []
             matched_indices = set()
@@ -916,15 +939,45 @@ def parse_startcode(input_file_path, output_file_path):
             for queue in mac_add_queue.values():
                 unmatched_rows.extend([row for _, row in queue])
 
-                # 建立異常 dataframe
-            df_unmatched = pd.DataFrame(unmatched_rows)
-            save_analysis_csv(df_unmatched, input_file_path, "hot_plug_events_unmatched.csv")
-            print('成功儲存未配對之熱插拔')
+                df_unmatched = pd.DataFrame(unmatched_rows)
+                save_analysis_csv(df_unmatched, input_file_path, "hot_plug_events_unmatched.csv")
+                print('成功儲存未配對之熱插拔')
+
+                # ------- 彙總未配對事件 -------
+                if not df_unmatched.empty:
+                    df_unmatched["Timestamp"] = pd.to_datetime(df_unmatched["Timestamp"])
+                    df_unmatched_summary = (
+                        df_unmatched
+                        .groupby("MAC")
+                        .agg(
+                            Unmatched_Count=("MAC", "size"),
+                            First=("Timestamp", "min"),
+                            Last=("Timestamp", "max"),
+                        )
+                        .reset_index()
+                    )
+                    df_unmatched_summary["Time_Span"] = df_unmatched_summary["Last"] - df_unmatched_summary["First"]
+                    df_unmatched_summary = df_unmatched_summary[df_unmatched_summary["Unmatched_Count"] > 1]
+                else:
+                    df_unmatched_summary = pd.DataFrame(
+                        columns=["MAC", "Unmatched_Count", "First", "Last", "Time_Span"])
+
+                save_analysis_csv(df_unmatched_summary, input_file_path, "hot_plug_events_unmatched_summary.csv")
 
             # 建立成功配對 dataframe
             df_matched = df_hot_plug_events.loc[sorted(matched_indices)].reset_index(drop=True)
             save_analysis_csv(df_matched, input_file_path, "hot_plug_events_matched.csv")
             print('成功儲存配對之熱插拔')
+
+            # 依 MAC 與每分鐘統計 add 與 del 次數並計算比例
+            df_hot_plug_events['Minute'] = pd.to_datetime(df_hot_plug_events['Timestamp']).dt.floor('min')
+            ratio_df = df_hot_plug_events.groupby(['MAC', 'Minute', 'Action']).size().unstack(fill_value=0)
+            ratio_df.rename(columns={'add': 'Add_Count', 'del': 'Del_Count'}, inplace=True)
+            ratio_df = ratio_df.reset_index()
+            ratio_df['Minute'] = ratio_df['Minute'].dt.strftime('%Y-%m-%d %H:%M')
+            ratio_df['Ratio'] = ratio_df.apply(
+                lambda r: r['Add_Count'] / r['Del_Count'] if r['Del_Count'] else r['Add_Count'], axis=1)
+            save_analysis_csv(ratio_df, input_file_path, "hot_plug_events_ratio.csv")
 
         """
         分析 Band Steering 成功與失敗事件
