@@ -72,6 +72,9 @@
       background-color: yellow;
       color: black;
   }
+  .warning-row {
+      background-color: #f8d7da;
+  }
 
 </style>
 
@@ -389,10 +392,56 @@
                     </tr>
                     {% empty %}
                     <tr><td colspan="5">No unmatched results</td></tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <!-- Unmatched Summary -->
+          <div id="Hot_Plug_Events_summary" style="display: none; margin-top: 10px;">
+            <table class="table table-bordered text-center">
+              <thead class="table-secondary">
+                <tr><th>ID</th><th>MAC</th><th>Count</th><th>First</th><th>Last</th><th>Time Span</th></tr>
+              </thead>
+              <tbody>
+                {% for record in hot_plug_unmatched_summary %}
+                <tr class="warning-row">
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ record.MAC }}</td>
+                  <td>{{ record.Unmatched_Count }}</td>
+                  <td>{{ record.First }}</td>
+                  <td>{{ record.Last }}</td>
+                  <td>{{ record.Time_Span }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6">No repeated mismatches</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+              <div id="Hot_Plug_Events_ratio_table" style="display: none; width: 90%; margin: 0 auto;">
+              <h2>Hot Plug Events Add/Delete Ratio</h2>
+              <hr>
+              <table class="table table-bordered text-center">
+                <thead class="table-secondary">
+                  <tr><th>ID</th><th>MAC</th><th>Minute</th><th>Add Count</th><th>Del Count</th><th>Ratio</th></tr>
+                </thead>
+                <tbody>
+                  {% for record in hot_plug_ratio_abnormal %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ record.MAC }}</td>
+                    <td>{{ record.Minute }}</td>
+                    <td>{{ record.Add_Count }}</td>
+                    <td>{{ record.Del_Count }}</td>
+                    <td>{{ record.Ratio }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr><td colspan="6">No ratio data</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
 
     <div id="wifi_availability_table" style="display: none; width: 90%; margin: 0 auto;">
@@ -431,21 +480,25 @@ document.addEventListener('DOMContentLoaded', function () {
   const allTable = document.getElementById('Hot_Plug_Events_table_all');
   const matchedTable = document.getElementById('Hot_Plug_Events_table_matched');
   const unmatchedTable = document.getElementById('Hot_Plug_Events_table_unmatched');
+  const summaryTable = document.getElementById('Hot_Plug_Events_summary');
 
   radios.forEach(radio => {
     radio.addEventListener('change', function () {
-      if (this.value === 'all') {
+       if (this.value === 'all') {
         allTable.style.display = 'block';
         matchedTable.style.display = 'none';
         unmatchedTable.style.display = 'none';
+        summaryTable.style.display = 'none';
       } else if (this.value === 'matched') {
         allTable.style.display = 'none';
         matchedTable.style.display = 'block';
         unmatchedTable.style.display = 'none';
+        summaryTable.style.display = 'none';
       } else if (this.value === 'unmatched') {
         allTable.style.display = 'none';
         matchedTable.style.display = 'none';
         unmatchedTable.style.display = 'block';
+        summaryTable.style.display = 'block';
       }
     });
   });
@@ -667,11 +720,11 @@ document.addEventListener("DOMContentLoaded", function () {
   data: {
     labels: labels,
     datasets: [
-      { label: 'Usr %', data: usr, borderColor: 'red', fill: false, tension: 0.2 },
+      { label: 'Usr %', data: usr, borderColor: 'aqua', fill: false, tension: 0.2 },
       { label: 'Sys %', data: sys, borderColor: 'blue', fill: false, tension: 0.2 },
       { label: 'Nic %', data: nic, borderColor: 'purple', fill: false, tension: 0.2 },
       { label: 'Idle %', data: idle, borderColor: 'green', fill: false, tension: 0.2 },
-      { label: 'IO %', data: io, borderColor: 'orange', fill: false, tension: 0.2 },
+      { label: 'IO %', data: io, borderColor: '#5d0082', fill: false, tension: 0.2 },
       { label: 'IRQ %', data: irq, borderColor: 'brown', fill: false, tension: 0.2 },
       { label: 'SIRQ %', data: sirq, borderColor: 'gray', fill: false, tension: 0.2 },
     ]
@@ -696,10 +749,10 @@ new Chart(document.getElementById('mem-usage-chart'), {
   data: {
     labels: mem_labels,
     datasets: [
-      { label: 'Used (K)', data: mem_used, borderColor: 'red', fill: false, tension: 0.2 },
+      { label: 'Used (K)', data: mem_used, borderColor: 'aqua', fill: false, tension: 0.2 },
       { label: 'Free (K)', data: mem_free, borderColor: 'green', fill: false, tension: 0.2 },
       { label: 'Shrd (K)', data: mem_shrd, borderColor: 'blue', fill: false, tension: 0.2 },
-      { label: 'Buff (K)', data: mem_buff, borderColor: 'orange', fill: false, tension: 0.2 },
+      { label: 'Buff (K)', data: mem_buff, borderColor: '#5d0082', fill: false, tension: 0.2 },
       { label: 'Cached (K)', data: mem_cached, borderColor: 'purple', fill: false, tension: 0.2 }
     ]
   },
@@ -1184,6 +1237,10 @@ logContainer.addEventListener("scroll", async function () {
           }
         }
       });
+      const ratioTable = document.getElementById('Hot_Plug_Events_ratio_table');
+      if (ratioTable) {
+        ratioTable.style.display = selectedValue === 'Hot_Plug_Events' ? 'block' : 'none';
+      }
 
       // 顯示預設 logs 或隱藏
       if (originalLogContainer) {
@@ -1281,6 +1338,7 @@ document.addEventListener("DOMContentLoaded", function () {
     "DHCP_LAN", "DHCP_WAN", "backhaul_connection",
     "wifi_availability", "Hot_Plug_Events", "band_steering", "eth_wan", 'cpu_usage', 'mem_usage', 'tr69_failure'
   ];
+  const ratioTable = document.getElementById('Hot_Plug_Events_ratio_table');
 
   function updateVisibleTable(selected) {
     tables.forEach(id => {
@@ -1289,6 +1347,9 @@ document.addEventListener("DOMContentLoaded", function () {
         table.style.display = (id === selected) ? "block" : "none";
       }
     });
+    if (ratioTable) {
+      ratioTable.style.display = selected === 'Hot_Plug_Events' ? 'block' : 'none';
+    }
           //初始化排序功能
       tables.forEach(id => {
         const tableTag = document.querySelector(`#${id}_table table`);
@@ -1304,6 +1365,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
             }
       });
+    if (ratioTable) {
+      const tableTag = ratioTable.querySelector('table');
+      const headers = tableTag?.querySelectorAll('thead tr th').length || 0;
+      const row = tableTag?.querySelector('tbody tr');
+      const cells = row?.querySelectorAll('td').length || headers;
+      if (tableTag && headers === cells && !$.fn.DataTable.isDataTable(tableTag)) {
+        $(tableTag).DataTable({
+          paging: false,
+          info: false,
+          searching: false,
+          order: []
+        });
+      }
+    }
   }
 
   selector.addEventListener("change", function () {
