@@ -924,6 +924,10 @@ def log_file_view(request):
     table_mode = request.GET.get("table_mode", "connection_status")  # 新增的 table_mode 參數
     custom_name = request.GET.get("custom_name") or request.session.get('custom_name', None)
 
+    if not custom_name or not UploadedLogFile.objects.filter(custom_name=custom_name).exists():
+        messages.error(request, "Requested log file does not exist.")
+        return redirect('file_management_input')
+
     background_colors = background_colored_list()
     print(f'custom_name: {custom_name}')
 
@@ -1156,6 +1160,43 @@ def log_file_view(request):
             all_logs = ["⚠️ Startcode Report Not Found"]
             parsed_logs = 0
             wifi_availability = {}
+            band_steering_logs = []
+            band_steering_events = []
+            eth_wan_logs = []
+            eth_wan_events = []
+            cpu_usage_logs = []
+            cpu_chart_labels = []
+            cpu_chart_usr = []
+            cpu_chart_sys = []
+            cpu_chart_nic = []
+            cpu_chart_idle = []
+            cpu_chart_io = []
+            cpu_chart_irq = []
+            cpu_chart_sirq = []
+            mem_usage_logs = []
+            mem_chart_labels = []
+            mem_chart_used = []
+            mem_chart_free = []
+            mem_chart_shrd = []
+            mem_chart_buff = []
+            mem_chart_cached = []
+            tr69_logs = []
+            tr69_acs_data = []
+            cloud_failure_logs = []
+            cloud_failure_data = []
+            arc_appapi_logs = []
+            arc_appapi_data = []
+            Reboot_events = []
+            wifi_signal_strength = []
+            channel_changes = []
+            DHCPDiscoverRequestUnfulfilled = []
+            frequentDHCPDiscoverRequest = []
+            backhaul_change_summary = []
+            backhaul_period = []
+            wandhcp_renew = []
+            all_hot_plug_events = []
+            hot_plug_events = []
+            hot_plug_unmatched_events = []
 
         logs_with_colors, log_groups = highlight_logs_for_display(all_logs, background_colors, return_groups=True)
         print("🔍 logs_with_colors 長度：", len(logs_with_colors))
@@ -1185,6 +1226,8 @@ def log_file_view(request):
         all_hot_plug_events_path = os.path.join(base, 'hot_plug_events.csv')
         hot_plug_events_path = os.path.join(base, 'hot_plug_events_matched.csv')
         hot_plug_events_unmatched_path = os.path.join(base, 'hot_plug_events_unmatched.csv')
+        hot_plug_ratio_path = os.path.join(base, 'hot_plug_events_ratio.csv')
+        hot_plug_unmatched_summary_path = os.path.join(base, 'hot_plug_events_unmatched_summary.csv')
 
 
         try:
@@ -1362,11 +1405,17 @@ def log_file_view(request):
             print("🔍 hot_plug_events_df.shape:", hot_plug_events_df.shape)
             hot_plug_unmatched_events_df = pd.read_csv(hot_plug_events_unmatched_path)
             hot_plug_unmatched_events = hot_plug_unmatched_events_df.to_dict(orient='records')
+            hot_plug_unmatched_summary_df = pd.read_csv(hot_plug_unmatched_summary_path)
+            hot_plug_unmatched_summary = hot_plug_unmatched_summary_df.to_dict(orient='records')
+            hot_plug_ratio_df = pd.read_csv(hot_plug_ratio_path)
+            hot_plug_ratio_abnormal = hot_plug_ratio_df.to_dict(orient='records')
 
         except FileNotFoundError:
             all_hot_plug_events = []
             hot_plug_events = []
             hot_plug_unmatched_events = []
+            hot_plug_unmatched_summary = []
+            hot_plug_ratio_abnormal = []
 
         try:
             ethwan_events_path = os.path.join(base, 'ethwan_startcode_events.csv')
@@ -1431,9 +1480,10 @@ def log_file_view(request):
         backhaul_period = []
         wandhcp_renew = []
         all_hot_plug_events = []
+        hot_plug_unmatched_summary = []
         band_steering_events = []
         band_steering_logs = []
-        eth_wan_logs= []
+        eth_wan_logs = []
 
         log_groups = []
 
@@ -1488,6 +1538,8 @@ def log_file_view(request):
             'all_hot_plug_events': all_hot_plug_events,
             'hot_plug_events': hot_plug_events,
             'hot_plug_unmatched_events': hot_plug_unmatched_events,
+            'hot_plug_unmatched_summary': hot_plug_unmatched_summary,
+            'hot_plug_ratio_abnormal': hot_plug_ratio_abnormal,
             'log_keys': log_keys,
             'reboot_logs': log_groups.get("reboot", []),
             'wifi_signal_logs': log_groups.get("wifi_signal", []),
@@ -1542,8 +1594,10 @@ def log_file_view(request):
             'backhaul_connection_logs': [],
             'wifi_availability_logs': [],
             'Hot_Plug_Events_logs': [],
+            'hot_plug_ratio_abnormal': [],
             'band_steering_logs':[],
             'eth_wan_logs':[],
+            'hot_plug_unmatched_summary': [],
             "cpu_usage_logs": [],
             "cpu_chart_labels":[],
             "cpu_chart_usr":[],
@@ -1653,7 +1707,11 @@ def connection_failure_view(request):
 
 @login_required
 def delete_log(request, log_id):
-    log = get_object_or_404(UploadedLogFile, id=log_id)
+    try:
+        log = UploadedLogFile.objects.get(id=log_id)
+    except UploadedLogFile.DoesNotExist:
+        messages.error(request, "File record not found.")
+        return redirect('file_management_input')
     custom_name = log.custom_name
     log.delete()
     messages.success(request, f"File '{log.file.name}' deleted successfully.")
